@@ -5,17 +5,20 @@
     <title>just2doit</title>
 </head>
 <body>
-<div id="666"></div>
-<div id="1233">
+<div id="666" style="width: 300px"></div>
+<div id="sss" style="width: 400px">
     <p>
-        <a href="" id="aa">das</a></p></div>
+        <a href="" id="aa">das</a></p>
+ <p>
+        <a href="" id="aaa">das</a></p>
+
+</div>
 <script src="doc5.js"></script>
 <script>
+    //bug 1 $("div #sss") 无dom对象也会返回jquery对象
+    //bug 2 $("div").css  不会返回所有的对象的style
   $(function () {
-$.each([6,5,4],function (index,item) {
-    console.log(index);
-    console.log(item);
-})
+    console.log($("div").attr('id'));
   })
 </script>
 </body>

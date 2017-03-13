@@ -37,6 +37,9 @@
                 return this;
             } else {
                 elm = document.querySelectorAll(selector);
+                if (!elm.length) {
+                    throw new Error('傻吊！ 你写的格式有问题 或者不存在该元素');
+                }
                 for (var i = 0; i < elm.length; i++) {
                     this[i] = elm[i];
                 }
@@ -47,12 +50,23 @@
             }
         },
         css: function (attr, val) {//链式测试
-            console.log(this.length);
+            var kodo = new Array();
             for (var i = 0; i < this.length; i++) {
-                if (arguments.length == 1) {
-                    return getComputedStyle(this[i], null)[attr];//getcomputedStyle会返回所有的style包括从父类继承的 第二个参数的伪类
+                if (typeof attr == 'string') {//如果传入的参数是字符串
+                    if (arguments.length == 1) {//并且参数的长度为1 即只有一个参数 val没有传入
+                        kodo[i] = getComputedStyle(this[0], null)[attr];//返回它们对应的style
+                    }
+                    this[i].style[attr] = val;//如果有两个参数 则给该属性赋值
+                } else {//如果传入的第一个参数不是字符串
+                    var _this = this[i];//获取到当前jquery对象中的第i个角标上的dom对象
+                    $.each(attr, function (attr, val) {//遍历attr参数 并在回调中传入每一个attr参数和他的值
+                        _this.style[attr] = val;
+                        //给每一个的dom元素增加css为传入的attr对象的key和value
+                    });
                 }
-                this[i].style[attr] = val;
+            }
+            if (typeof attr == 'string' && arguments.length == 1) {
+                return kodo;
             }
             return this;
         },
@@ -108,10 +122,85 @@
             a.length = i;//给我们的jquery对象赋值长度属性
             return a;
         },
+        find: function (selector) {
+            if (!selector) return;
+            var context = this.selector;//因为我们每次创建jquery对象都会有一个selector属性 此处可以获取到当前对象的selector
+            return new Kodo(context + ' ' + selector);//然后组成(原来的selector 传入的selector)创建jquery对象
+        },
+        first: function () {
+            return new Kodo(this[0])//直接返回当前数组中第一个元素jquery对象
+        },
+        last: function () {
+            var num = this.length - 1;
+            return new Kodo(this[num]);//返回最后一个元素；注意因为是数组 从0开始 所以length需要减一
+        },
+        eq: function (num) {
+            var num = num < 0 ? (this.length - 1) : num;//如果num小于0则为length-1否则为num
+            return new Kodo(this[num]);//返回指定角标的jquery对象
+        },
+        get: function (num) {
+            var num = num < 0 ? (this.length - 1) : num;//同上 但是返回的是dom对象
+            return this[num];
+        },
+        attr: function (attr, val) {//与css实现方式相同
+            var arr = [];
+            for (var i = 0; i < this.length; i++) {
+                if (typeof attr == 'string') {
+                    if (arguments.length == 1) {
+                        arr[i] = this[i].getAttribute(attr);
+                    }
+                    this[i].setAttribute(attr, val);
+                } else {
+                    var _this = this[i];
+                    $.each(attr, function (attr, val) {
+                        _this.setAttribute(attr, val);
+                    });
+                }
+            }
+            if (typeof attr == 'string' && arguments.length == 1) {
+                return arr;
+            }
+            return this;
+        },
+        data: function (attr, val) {
+            var arr = [];
+            for (var i = 0; i < this.length; i++) {
+                if (typeof attr == 'string') {
+                    if (arguments.length == 1) {
+                        return this[i].getAttribute('data-' + attr);
+                    }
+                    this[i].setAttribute('data-' + attr, val);
+                } else {
+                    var _this = this[i];
+                    f.each(attr, function (attr, val) {
+                        _this.setAttribute('data-' + attr, val);
+                    });
+                }
+            }
+            if (typeof attr == 'string' && arguments.length == 1) {
+                return arr;
+            }
+            return this;
+        }
     };
     Kodo.prototype.init.prototype = Kodo.prototype;//即init方法生成的对象可以调用Kodo里的所有方法
-    Kodo.ajax = function () {
-        console.log(this);
+    Kodo.get = function (url, sucBack, complete) {//添加get静态方法
+        var options = {
+            url: url,//设置url
+            success: sucBack,//设置成功的回调方法
+            complete: complete//设置一个属性表示是否完成
+        };
+        ajax(options);//调用ajax方法
+    };
+    Kodo.post = function (url, data, sucback, complete) {
+        var options = {
+            url: url,//设置url
+            type: "POST",//如果发送post请求需要设置post因为下面的open方法需要这个参数 并且设置对象请求头
+            data: data,//写入参数
+            sucback: sucback,//回调方法
+            complete: complete//设置一个属性表示是否完成
+        };
+        ajax(options);
     };
     Kodo.ready = function (fn) {
 
@@ -153,5 +242,58 @@
 
     function isArray(obj) {
         return Array.isArray(obj);
+    }
+
+    function ajax(options) {
+        var defaultOptions = {
+            url: false, //ajax 请求地址
+            type: "GET",
+            data: false,
+            success: false, //数据成功返回后的回调方法
+            complete: false //ajax完成后的回调方法
+        };
+        for (var i in defaultOptions) {
+            if (options[i] === undefined) {//如果传入的option中有些默认配置为定义的话
+                options[i] = defaultOptions[i];//就设为默认配置
+            }
+        }
+        var xhr = new XMLHttpRequest();
+        var url = options.url;
+        xhr.open(options.type, url);//打开该链接
+        xhr.onreadystatechange = onStateChange;
+        if (options.type === 'POST') {
+            //如果是发送post要设置请求头
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        }
+        xhr.send(options.data ? options.data : null);//如果data有参数则发送参数 否则发送null
+
+        function onStateChange() {
+            if (xhr.readyState == 4) {//当请求完成时
+                var result,
+                    status = xhr.status;
+
+                if ((status >= 200 && status < 300) || status == 304) {//当响应头为成功接收到响应
+                    result = xhr.responseText;//获取返回内容
+                    if (window.JSON) {//如果浏览器支持json方法
+                        result = JSON.parse(result);//把返回内容转为json
+                    } else {
+                        result = eval('(' + result + ')');//否则转为对象
+                    }
+                    ajaxSuccess(result, xhr)//使用ajax成功处理方法
+                } else {
+                    console.log("ERR", xhr.status);//否则的话报错
+                }
+            }
+        }
+
+        function ajaxSuccess(data, xhr) {//设置成功响应时的方法
+            var status = 'success';
+            options.success && options.success(data, options, status, xhr)//给回调的方法赋值参数
+            ajaxComplete(status)//响应方法表示ajax彻底完成
+        }
+
+        function ajaxComplete(status) {
+            options.complete && options.complete(status);
+        }
     }
 })(window, document);
